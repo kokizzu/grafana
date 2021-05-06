@@ -56,12 +56,12 @@ func (s *LogQueryRunnerSupplier) GetHandlerForPath(path string) (models.ChannelH
 }
 
 // OnSubscribe publishes results from the corresponding CloudWatch Logs query to the provided channel
-func (r *logQueryRunner) OnSubscribe(ctx context.Context, user *models.SignedInUser, e models.SubscribeEvent) (models.SubscribeReply, bool, error) {
+func (r *logQueryRunner) OnSubscribe(ctx context.Context, user *models.SignedInUser, e models.SubscribeEvent) (models.SubscribeReply, backend.SubscribeStreamStatus, error) {
 	r.runningMu.Lock()
 	defer r.runningMu.Unlock()
 
 	if _, ok := r.running[e.Channel]; ok {
-		return models.SubscribeReply{}, true, nil
+		return models.SubscribeReply{}, backend.SubscribeStreamStatusOK, nil
 	}
 
 	r.running[e.Channel] = true
@@ -71,12 +71,12 @@ func (r *logQueryRunner) OnSubscribe(ctx context.Context, user *models.SignedInU
 		}
 	}()
 
-	return models.SubscribeReply{}, true, nil
+	return models.SubscribeReply{}, backend.SubscribeStreamStatusOK, nil
 }
 
 // OnPublish checks if a message from the websocket can be broadcast on this channel
-func (r *logQueryRunner) OnPublish(ctx context.Context, user *models.SignedInUser, e models.PublishEvent) (models.PublishReply, bool, error) {
-	return models.PublishReply{}, false, nil
+func (r *logQueryRunner) OnPublish(ctx context.Context, user *models.SignedInUser, e models.PublishEvent) (models.PublishReply, backend.PublishStreamStatus, error) {
+	return models.PublishReply{}, backend.PublishStreamStatusPermissionDenied, nil
 }
 
 func (r *logQueryRunner) publishResults(channelName string) error {
@@ -108,6 +108,7 @@ func (r *logQueryRunner) publishResults(channelName string) error {
 
 // executeLiveLogQuery executes a CloudWatch Logs query with live updates over WebSocket.
 // A WebSocket channel is created, which goroutines send responses over.
+//nolint: staticcheck // plugins.DataResponse deprecated
 func (e *cloudWatchExecutor) executeLiveLogQuery(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	responseChannelName := uuid.New().String()
 	responseChannel := make(chan plugins.DataResponse)
@@ -133,6 +134,7 @@ func (e *cloudWatchExecutor) executeLiveLogQuery(ctx context.Context, req *backe
 	return response, nil
 }
 
+//nolint: staticcheck // plugins.DataResponse deprecated
 func (e *cloudWatchExecutor) sendLiveQueriesToChannel(req *backend.QueryDataRequest, responseChannel chan plugins.DataResponse) {
 	defer close(responseChannel)
 
@@ -210,6 +212,7 @@ func (e *cloudWatchExecutor) fetchConcurrentQueriesQuota(region string, pluginCt
 	return defaultConcurrentQueries
 }
 
+//nolint: staticcheck // plugins.DataResponse deprecated
 func (e *cloudWatchExecutor) startLiveQuery(ctx context.Context, responseChannel chan plugins.DataResponse, query backend.DataQuery, timeRange backend.TimeRange, pluginCtx backend.PluginContext) error {
 	model, err := simplejson.NewJson(query.JSON)
 	if err != nil {
